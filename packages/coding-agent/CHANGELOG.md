@@ -22,6 +22,7 @@
 - Fixed parked subagents keeping their spawn-time run state and settings in memory until the process exits, which grew memory with every subagent a long session spawned ([#14040](https://github.com/can1357/oh-my-pi/pull/14040) by [@theolundqvist](https://github.com/theolundqvist)).
 - Fixed discovered models' request headers being resolved through one extra layer per subagent session, which grew memory and repeated every discovered header lookup on each request.
 - Fixed discovered models' request headers being resolved through one extra layer per subagent session, which grew memory and repeated every discovered header lookup on each request ([#14041](https://github.com/can1357/oh-my-pi/pull/14041) by [@theolundqvist](https://github.com/theolundqvist)).
+- Fixed parked and disposed agent sessions keeping their persistent shell (about 70 KB of native memory each) for the life of the process; a revived subagent now starts with a fresh shell.
 - Fixed test suite failures on non-FHS hosts and under ambient terminal and Git configuration ([#12358](https://github.com/can1357/oh-my-pi/pull/12358) by [@olegpulatov](https://github.com/olegpulatov)).
 
 ## [18.4.9] - 2026-10-01
