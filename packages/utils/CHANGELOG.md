@@ -4,11 +4,23 @@
 
 ### Added
 
-- Added `getSkillDescriptionsDbPath()` and `getPredictStateDir()`, XDG-aware paths that adopt legacy data on first XDG resolution ([#13648](https://github.com/can1357/oh-my-pi/pull/13648) by [@Parsifa1](https://github.com/Parsifa1))
+- Added the public `getSessionOwnersDir()` utility, which returns the profile-independent `~/.omp/run/session-owners` directory that names session ownership leases ([#14095](https://github.com/can1357/oh-my-pi/pull/14095) by [@andrebrait](https://github.com/andrebrait))
+
+## [18.4.12] - 2026-10-02
 
 ### Fixed
 
-- Fixed the machine-global daemon runtime dir (e.g. the `text-predict` broker) bypassing XDG state resolution; it now lands under `$XDG_STATE_HOME/omp/run/daemons/global` when initialized, shared across profiles and custom agent dirs. A broker started by an older version under `~/.omp/run/daemons/global` is not reused and exits once idle ([#13648](https://github.com/can1357/oh-my-pi/pull/13648) by [@Parsifa1](https://github.com/Parsifa1))
+- Fixed multi-second temp directory removal stalls on Windows by forcing a major GC before the first deletion retry ([#13044](https://github.com/can1357/oh-my-pi/pull/13044) by [@jchanghong023](https://github.com/jchanghong023)).
+
+## [18.4.11] - 2026-10-02
+
+### Added
+
+- Added XDG-aware utility paths for skill descriptions and prediction state, with automatic adoption of legacy data when XDG locations are first resolved.
+
+### Fixed
+
+- Fixed machine-global daemon runtime paths so brokers such as text prediction use the shared XDG state location across profiles and custom agent directories.
 
 ## [18.4.10] - 2026-10-02
 

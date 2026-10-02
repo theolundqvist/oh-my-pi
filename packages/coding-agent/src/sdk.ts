@@ -2147,10 +2147,12 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 
 	try {
 		const getActiveModelString = (): string | undefined => {
-			const activeModel = agent?.state.model;
-			if (activeModel) return formatModelString(activeModel);
-			if (model) return formatModelString(model);
-			return undefined;
+			const activeModel = agent?.state.model ?? model;
+			if (!activeModel) return undefined;
+			// Inherit the live route and effective effort, not just the model identity.
+			// A later effort change must not reuse the startup selector or restart auto triage.
+			const effort = agent?.state.model ? agent.state.thinkingLevel : effectiveThinkingLevel;
+			return formatModelSelectorValue(formatModelStringWithRouting(activeModel), effort);
 		};
 		// Per-path mutation counter shared across edit/write tools. Late-diagnostics
 		// entries capture it at fetch time and are dropped at injection if a newer
@@ -3858,6 +3860,7 @@ async function createAgentSessionScoped(options: CreateAgentSessionOptions): Pro
 				model: getActiveModelString(),
 				includeModelInPrompt: cfgIncludeModelInPrompt.get(settings),
 				personality: agentKind === "sub" ? "none" : cfgPersonality.get(settings),
+				subagent: agentKind === "sub",
 				renderMermaid: cfgTuiRenderMermaid.get(settings),
 				reactions: agentKind === "main" && options.hasUI === true && cfgTuiReactions.get(settings),
 				activeRepoContext,

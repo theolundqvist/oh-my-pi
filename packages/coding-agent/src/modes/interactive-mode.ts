@@ -1,3 +1,4 @@
+import { formatModelSelectorValue } from "@oh-my-pi/pi-tui/overlays/model-selector";
 /**
  * Interactive mode for the coding agent.
  * Handles TUI rendering and user interaction, delegating business logic to AgentSession.
@@ -49,7 +50,7 @@ import { describeSegmentTrack, renderSegmentTrack, type TrackSegment } from "@oh
 import type { WorkingRowSpec } from "@oh-my-pi/pi-tui/components/loader";
 import { formatDoubleTap } from "@oh-my-pi/pi-tui/key-hint-format";
 import { thinkingLevelWord } from "@oh-my-pi/pi-tui/status-line/segments";
-import type { TspChecklistItem, TspChecklistPhase, TspSpan, TspTreeNode } from "@oh-my-pi/pi-wire";
+import type { TspChecklistItem, TspChecklistPhase, TspSpan, TspText, TspTreeNode } from "@oh-my-pi/pi-wire";
 import { isInsideTerminalMultiplexer } from "@oh-my-pi/pi-tui/terminal-capabilities";
 import {
 	$env,
@@ -71,7 +72,7 @@ import { CollabController } from "../collab/controller";
 import type { CollabHost } from "../collab/host";
 import { formatKeyHint, KeybindingsManager } from "@oh-my-pi/pi-tui/app-keybindings";
 import { appKey, editorKey } from "@oh-my-pi/pi-tui/chrome/keybinding-hints";
-import { formatModelString, type ResolvedModelRoleValue } from "../config/model-resolver";
+import { formatModelStringWithRouting, type ResolvedModelRoleValue } from "../config/model-resolver";
 import { isSettingsInitialized, Settings, settings } from "../config/settings";
 import { clearClaudePluginRootsCache } from "../discovery/helpers";
 import type {
@@ -1208,6 +1209,8 @@ export class InteractiveMode implements InteractiveModeContext {
 	errorBannerContainer: Container;
 	modelCycleContainer: Container;
 	deferredCommandContainer: Container;
+	/** The docked `/changelog`-style command report, just above the editor; Esc clears it. */
+	reportContainer: Container;
 	editor: CustomEditor;
 	editorContainer: Container;
 	/** Composer attachment band (chip cards) rendered directly above the prompt box. */
@@ -1826,6 +1829,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.errorBannerContainer = new AnchoredLiveContainer();
 		this.modelCycleContainer = new AnchoredLiveContainer();
 		this.deferredCommandContainer = new AnchoredLiveContainer();
+		this.reportContainer = new AnchoredLiveContainer();
 		if (eventBus) {
 			this.#eventBusUnsubscribers.push(
 				eventBus.on(JUDGMENT_BATCH_PROGRESS_EVENT_CHANNEL, data => {
@@ -2143,6 +2147,7 @@ export class InteractiveMode implements InteractiveModeContext {
 				this.todoContainer,
 				this.subagentContainer,
 				this.btwContainer,
+				this.reportContainer,
 				this.omfgContainer,
 				this.cleanseContainer,
 				this.errorBannerContainer,
@@ -2163,8 +2168,11 @@ export class InteractiveMode implements InteractiveModeContext {
 			],
 			{
 				// Inline dialogs and a tall multi-line draft swap into the editor
-				// container and collapse again; everything else is turn-scoped.
-				transient: [this.editorContainer],
+				// container and collapse again, as a command report above it closes
+				// on Esc: they clip the transcript instead of retiring it to
+				// scrollback, so the editor returns to the bottom when they go.
+				// Everything else is turn-scoped.
+				transient: [this.editorContainer, this.reportContainer],
 				// Natively the HUD pills lead the dock, queued messages sit between
 				// the working row and the composer, and the attachment chips live
 				// inside the composer.
@@ -4527,7 +4535,10 @@ export class InteractiveMode implements InteractiveModeContext {
 			// (same as the spawn-path ToolSession), not the settings default. This is
 			// the primary fallback in resolveAgentModelPatterns, so the `good` worker's
 			// pi/task inheritance tracks the reopened session's model.
-			getActiveModelString: () => (this.session.model ? formatModelString(this.session.model) : undefined),
+			getActiveModelString: () =>
+				this.session.model
+					? formatModelSelectorValue(formatModelStringWithRouting(this.session.model), this.session.thinkingLevel)
+					: undefined,
 		};
 	}
 
@@ -7194,7 +7205,7 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.transcriptMessageComponents = new WeakMap<AgentMessage, Component>();
 		this.chatContainer.dispose();
 		this.chatContainer.clear();
-		this.#commandController.resetContextView();
+		this.#commandController.clearCommandReport();
 	}
 
 	showStatus(message: string, options?: { dim?: boolean }): void {
@@ -7558,6 +7569,10 @@ export class InteractiveMode implements InteractiveModeContext {
 		return this.#commandController.handleDumpCommand();
 	}
 
+	async handleDumpAllCommand(): Promise<void> {
+		return this.#commandController.handleDumpAllCommand();
+	}
+
 	handleAdvisorDumpCommand(isRaw?: boolean) {
 		return this.#commandController.handleAdvisorDumpCommand(isRaw);
 	}
@@ -7880,6 +7895,10 @@ export class InteractiveMode implements InteractiveModeContext {
 		this.#selectorController.showTreeSelector();
 	}
 
+	showThinkingSelector(): void {
+		this.#selectorController.showThinkingSelector();
+	}
+
 	showSessionSelector(source?: ForeignSessionSource): void {
 		void this.#selectorController.showSessionSelector(source);
 	}
@@ -8063,6 +8082,28 @@ export class InteractiveMode implements InteractiveModeContext {
 
 	handleCleanseEscape(): boolean {
 		return this.#cleanseController.handleEscape();
+	}
+
+	showCommandReport(options: { title: string; head?: TspText; body: Component }): void {
+		this.#commandController.showCommandReport(options);
+	}
+
+	dismissCommandReport(): boolean {
+		return this.#commandController.dismissCommandReport();
+	}
+
+	commandReportRows(): number | undefined {
+		const below = this.composer.rowsBelow(this.reportContainer);
+		return below === undefined ? undefined : this.ui.terminal.rows - below;
+	}
+
+	composerInputAtBottom(): boolean {
+		const viewport = this.ui.getMutableViewport();
+		return viewport.length > 0 && viewport.top + viewport.length >= this.ui.terminal.rows;
+	}
+
+	pinComposerToBottom(): void {
+		this.composer.pinInputToBottom();
 	}
 
 	cycleThinkingLevel(): void {
