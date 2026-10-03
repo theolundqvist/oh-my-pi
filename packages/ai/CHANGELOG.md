@@ -4,6 +4,13 @@
 
 ### Fixed
 
+- Fixed Antigravity chat and image requests sending an outdated client version when the model list came from cache, which could make newer models such as Claude Opus 5.5 unavailable.
+- When a DeepSeek model writes a broken DSML tool call (for example with the opening `<｜DSML｜tool_calls>` and `<｜DSML｜invoke>` tags missing), its closing tags are now kept in the streamed text instead of being dropped. This lets the agent remove exactly the broken call while keeping any text after it ([#14202](https://github.com/can1357/oh-my-pi/pull/14202) by [@H4vC](https://github.com/H4vC)).
+
+## [18.5.1] - 2026-10-03
+
+### Fixed
+
 - Fixed DeepSeek and OpenAI Responses requests failing or entering retry loops when replayed tool calls contained repaired arguments, orphaned tool results, or missing reasoning context.
 - Fixed requests to models that do not support sampling parameters from failing with HTTP 400 errors when accessed through non-native providers. Sampling parameters are now omitted for incompatible models, including requests made by chat judging, title generation, skill descriptions, and memory extraction.
 - Fixed OpenRouter BYOK usage being reported as free; provider inference costs and applicable credits charges are now included in session and status-line cost reporting.
