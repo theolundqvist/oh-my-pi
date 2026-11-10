@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed discovered models' request headers being resolved through one extra layer per subagent session, which grew memory and per-request work in long sessions ([#14041](https://github.com/can1357/oh-my-pi/pull/14041) by [@theolundqvist](https://github.com/theolundqvist))
+
 ## [18.18.6] - 2026-11-09
 
 ### Added
