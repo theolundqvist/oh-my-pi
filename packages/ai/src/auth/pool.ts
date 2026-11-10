@@ -1,3 +1,5 @@
+import { authPolicyFor } from "@oh-my-pi/pi-catalog/compat/auth";
+import { providerPauseReason } from "../registry/oauth";
 import { logger } from "@oh-my-pi/pi-utils";
 import { resolveCredentialIdentityKey, serializeCredential } from "./sqlite-credential-store";
 import type { BlockStoreHealth } from "./blocks";
@@ -329,10 +331,14 @@ export class CredentialPool implements CredentialsApi {
 	/**
 	 * Updates in-memory credential cache for a provider.
 	 * Removes the provider entry entirely if credentials array is empty.
+	 * A provider turned off in its auth rules (`disabled "<reason>"`) caches
+	 * nothing: its stored rows stay on disk untouched, but no read, selection,
+	 * refresh, usage probe or broker snapshot ever sees them.
 	 * @param provider - Provider name (e.g., "anthropic", "openai")
-	 * @param credentials - Array of stored credentials to cache
+	 * @param stored - Array of stored credentials to cache
 	 */
-	replace(provider: string, credentials: StoredCredential[]): void {
+	replace(provider: string, stored: StoredCredential[]): void {
+		const credentials = providerPauseReason(provider) === undefined ? stored : [];
 		const current = this.#data.get(provider) ?? [];
 		if (storedCredentialArraysEqual(current, credentials)) return;
 		const trackedBearerFingerprints = this.#oauthBearerFingerprints.get(provider);
@@ -642,11 +648,6 @@ export class CredentialPool implements CredentialsApi {
 		const index = entries.findIndex(entry => entry.id === credentialId);
 		if (index === -1) return false;
 		const remainingEntries = entries.filter((_entry, entryIndex) => entryIndex !== index);
-		this.#options.policies.validateFor(
-			provider,
-			remainingEntries.map(entry => entry.credential),
-		);
-
 		const deleted = await this.#store.deleteAuthCredential(credentialId, "deleted by user");
 		if (!deleted) return false;
 		this.replace(provider, remainingEntries);
@@ -666,6 +667,16 @@ export class CredentialPool implements CredentialsApi {
 	 */
 	hasOAuth(provider: string): boolean {
 		return this.credentials(provider).some(credential => credential.type === "oauth");
+	}
+
+	/** OAuth and provider-opted-in login API keys use subscription billing. */
+	hasSubscription(provider: string): boolean {
+		const credentials = this.credentials(provider);
+		if (credentials.some(credential => credential.type === "oauth")) return true;
+		return (
+			authPolicyFor(provider)?.loginSubscription === true &&
+			credentials.some(credential => credential.type === "api_key" && credential.source === "login")
+		);
 	}
 
 	/**

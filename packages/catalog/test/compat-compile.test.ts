@@ -359,6 +359,17 @@ describe("auth grammar", () => {
 		expect(compiled.providers[0]?.nativeAuthApis).toEqual(["bedrock-converse-stream", "openai-responses"]);
 	});
 
+	test("a disabled provider keeps its reason, and a blank reason is rejected", () => {
+		const compiled = compileAuth([
+			{ file: "auth/x.kdl", text: 'auth "x" {\n\tname "X"\n\tdisabled "paused for now"\n}' },
+			order(),
+		]);
+		expect(compiled.providers[0]?.disabled).toBe("paused for now");
+		expect(() =>
+			compileAuth([{ file: "auth/x.kdl", text: 'auth "x" {\n\tname "X"\n\tdisabled "  "\n}' }, order()]),
+		).toThrow(/auth\/x\.kdl:3/);
+	});
+
 	test("auth identity and OAuth env policy preserve explicit false and reject empty token lists", () => {
 		const compiled = compileAuth([
 			{
@@ -531,6 +542,25 @@ describe("provider catalog grammar", () => {
 				),
 			),
 		).toThrow(/directive `kind-apis` has a malformed value/);
+	});
+
+	test("seed request-model-id becomes the row's requestModelId; duplicates and non-strings are rejected", () => {
+		const seeded = (axes: string) =>
+			compileProviders(
+				src(provider("p", ['\tdefault-model "m"', seed('api="openai-decisions" base-url="https://x"', axes)])),
+			);
+		expect(seeded('\t\t\trequest-model-id "wire-m"').p.seed?.models[0]).toMatchObject({
+			id: "m",
+			api: "openai-decisions",
+			requestModelId: "wire-m",
+		});
+		expect(seeded("").p.seed?.models[0]).not.toHaveProperty("requestModelId");
+		expect(() => seeded('\t\t\trequest-model-id "a"\n\t\t\trequest-model-id "b"')).toThrow(
+			/directive `request-model-id` has a malformed value/,
+		);
+		expect(() => seeded("\t\t\trequest-model-id #true")).toThrow(
+			/directive `request-model-id` has a malformed value/,
+		);
 	});
 
 	test("seed APIs reject values outside the known and runner API sets", () => {
