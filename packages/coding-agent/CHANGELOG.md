@@ -13,6 +13,9 @@
 ### Changed
 
 - Finished subagents now park 5 seconds after going idle instead of 7 minutes, so long sessions that spawn many subagents release their memory promptly ([#14037](https://github.com/can1357/oh-my-pi/pull/14037) by [@theolundqvist](https://github.com/theolundqvist))
+### Fixed
+
+- Fixed discovered models' request headers being resolved through one extra layer per subagent session, which grew memory and per-request work in long sessions ([#14041](https://github.com/can1357/oh-my-pi/pull/14041) by [@theolundqvist](https://github.com/theolundqvist))
 
 ## [18.18.6] - 2026-11-09
 
